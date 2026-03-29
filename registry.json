@@ -7,7 +7,7 @@
       "categories": ["input", "accessibility"],
       "verified": true
     },
-    "tiling": {
+    "wm": {
       "source": "branchkit/branchkit-plugin-tiling",
       "description": "Tree-based tiling window manager with workspaces.",
       "categories": ["windows", "productivity"],
@@ -19,7 +19,7 @@
       "categories": ["browser", "navigation"],
       "verified": true
     },
-    "keybinds": {
+    "keyboard": {
       "source": "branchkit/branchkit-plugin-keybinds",
       "description": "Keybind registry and keyboard routing.",
       "categories": ["input"],
