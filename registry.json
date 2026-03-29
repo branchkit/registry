@@ -36,6 +36,12 @@
       "description": "Window snap, move-to-space, and native window management.",
       "categories": ["windows"],
       "verified": true
+    },
+    "basetypes": {
+      "source": "DrewBradfordXYZ/branchkit-plugin-basetypes",
+      "description": "QuickBase form filling, field navigation, and app integration.",
+      "categories": ["productivity", "quickbase"],
+      "verified": false
     }
   }
 }
