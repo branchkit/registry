@@ -1,0 +1,92 @@
+name: Validate Registry
+
+on:
+  pull_request:
+    paths:
+      - 'registry.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate registry.json
+        run: |
+          set -e
+
+          # Check valid JSON
+          if ! jq empty registry.json 2>/dev/null; then
+            echo "❌ registry.json is not valid JSON"
+            exit 1
+          fi
+          echo "✅ Valid JSON"
+
+          # Check version field
+          VERSION=$(jq -r '.version' registry.json)
+          if [ "$VERSION" != "1" ]; then
+            echo "❌ Expected version 1, got $VERSION"
+            exit 1
+          fi
+          echo "✅ Version: $VERSION"
+
+          # Validate each plugin entry
+          ERRORS=0
+          for PLUGIN_ID in $(jq -r '.plugins | keys[]' registry.json); do
+            # Check ID format: lowercase, digits, hyphens only
+            if ! echo "$PLUGIN_ID" | grep -qE '^[a-z0-9-]+$'; then
+              echo "❌ Invalid plugin ID: '$PLUGIN_ID' (must be lowercase letters, digits, hyphens)"
+              ERRORS=$((ERRORS + 1))
+              continue
+            fi
+
+            # Check required fields
+            SOURCE=$(jq -r ".plugins[\"$PLUGIN_ID\"].source // empty" registry.json)
+            DESC=$(jq -r ".plugins[\"$PLUGIN_ID\"].description // empty" registry.json)
+
+            if [ -z "$SOURCE" ]; then
+              echo "❌ Plugin '$PLUGIN_ID': missing 'source' field"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if [ -z "$DESC" ]; then
+              echo "❌ Plugin '$PLUGIN_ID': missing 'description' field"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Check source format: owner/repo
+            if [ -n "$SOURCE" ] && ! echo "$SOURCE" | grep -qE '^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$'; then
+              echo "❌ Plugin '$PLUGIN_ID': invalid source format '$SOURCE' (expected owner/repo)"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Check GitHub repo exists
+            if [ -n "$SOURCE" ]; then
+              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$SOURCE")
+              if [ "$HTTP_STATUS" = "404" ]; then
+                echo "❌ Plugin '$PLUGIN_ID': repo '$SOURCE' does not exist on GitHub"
+                ERRORS=$((ERRORS + 1))
+              elif [ "$HTTP_STATUS" != "200" ]; then
+                echo "⚠️  Plugin '$PLUGIN_ID': could not verify repo '$SOURCE' (HTTP $HTTP_STATUS)"
+              else
+                echo "✅ Plugin '$PLUGIN_ID': $SOURCE exists"
+              fi
+            fi
+          done
+
+          # Check for duplicate sources
+          DUPES=$(jq -r '.plugins[].source' registry.json | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "❌ Duplicate sources found: $DUPES"
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          TOTAL=$(jq '.plugins | length' registry.json)
+          echo ""
+          echo "Validated $TOTAL plugins, $ERRORS errors"
+
+          if [ $ERRORS -gt 0 ]; then
+            exit 1
+          fi
