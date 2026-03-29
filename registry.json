@@ -39,7 +39,7 @@
     },
     "basetypes": {
       "source": "DrewBradfordXYZ/branchkit-plugin-basetypes",
-      "description": "QuickBase form filling, field navigation, and app integration.",
+      "description": "Basetypes integration with BranchKit.",
       "categories": ["productivity", "quickbase"],
       "verified": false
     }
