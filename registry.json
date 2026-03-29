@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "plugins": {
+    "voice": {
+      "source": "branchkit/branchkit-plugin-voice",
+      "description": "Push-to-talk dictation and voice commands.",
+      "categories": ["input", "accessibility"],
+      "verified": true
+    },
+    "tiling": {
+      "source": "branchkit/branchkit-plugin-tiling",
+      "description": "Tree-based tiling window manager with workspaces.",
+      "categories": ["windows", "productivity"],
+      "verified": true
+    },
+    "browser": {
+      "source": "branchkit/branchkit-plugin-browser",
+      "description": "Browser extension bridge and hint system.",
+      "categories": ["browser", "navigation"],
+      "verified": true
+    },
+    "keybinds": {
+      "source": "branchkit/branchkit-plugin-keybinds",
+      "description": "Keybind registry and keyboard routing.",
+      "categories": ["input"],
+      "verified": true
+    },
+    "system": {
+      "source": "branchkit/branchkit-plugin-system",
+      "description": "App registry and audio control.",
+      "categories": ["system"],
+      "verified": true
+    },
+    "windows": {
+      "source": "branchkit/branchkit-plugin-windows",
+      "description": "Window snap, move-to-space, and native window management.",
+      "categories": ["windows"],
+      "verified": true
+    }
+  }
+}
