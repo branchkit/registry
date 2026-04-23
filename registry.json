@@ -3,37 +3,37 @@
   "plugins": {
     "voice": {
       "source": "branchkit/branchkit-plugin-voice",
-      "description": "Push-to-talk dictation and voice commands.",
+      "description": "Core voice commands, phonetic alphabet, calibration, dictation timing.",
       "categories": ["input", "accessibility"],
       "verified": true
     },
-    "wm": {
+    "tiling": {
       "source": "branchkit/branchkit-plugin-tiling",
-      "description": "Tree-based tiling window manager with workspaces.",
+      "description": "Tree-based tiling window manager with voice and keybind control.",
       "categories": ["windows", "productivity"],
       "verified": true
     },
     "browser": {
       "source": "branchkit/branchkit-plugin-browser",
-      "description": "Browser extension bridge and hint system.",
+      "description": "Bridge between BranchKit and browser extensions. Routes voice commands to page elements.",
       "categories": ["browser", "navigation"],
       "verified": true
     },
     "keyboard": {
-      "source": "branchkit/branchkit-plugin-keybinds",
-      "description": "Keybind registry and keyboard routing.",
+      "source": "branchkit/branchkit-plugin-keyboard",
+      "description": "Global hotkey capture, keybind registry, and input simulation.",
       "categories": ["input"],
       "verified": true
     },
     "system": {
       "source": "branchkit/branchkit-plugin-system",
-      "description": "App registry and audio control.",
+      "description": "Application registry, app switching HUD, audio control, and system settings.",
       "categories": ["system"],
       "verified": true
     },
     "windows": {
       "source": "branchkit/branchkit-plugin-windows",
-      "description": "Window snap, move-to-space, and native window management.",
+      "description": "Native window management — snap, move to space, switch desktops, browser tab operations.",
       "categories": ["windows"],
       "verified": true
     },
