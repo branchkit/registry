@@ -1,0 +1,42 @@
+plugins:
+  - id: voice
+    source: github:branchkit/branchkit-plugin-voice
+    description: "Core voice commands, phonetic alphabet, calibration, dictation timing."
+    categories: [input, accessibility]
+    tier: first-party
+
+  - id: tiling
+    source: github:branchkit/branchkit-plugin-tiling
+    description: "Tree-based tiling window manager with voice and keybind control."
+    categories: [windows, productivity]
+    tier: first-party
+
+  - id: browser
+    source: github:branchkit/branchkit-plugin-browser
+    description: "Bridge between BranchKit and browser extensions. Routes voice commands to page elements."
+    categories: [browser, navigation]
+    tier: first-party
+
+  - id: keyboard
+    source: github:branchkit/branchkit-plugin-keyboard
+    description: "Global hotkey capture, keybind registry, and input simulation."
+    categories: [input]
+    tier: first-party
+
+  - id: system
+    source: github:branchkit/branchkit-plugin-system
+    description: "Application registry, app switching HUD, audio control, and system settings."
+    categories: [system]
+    tier: first-party
+
+  - id: windows
+    source: github:branchkit/branchkit-plugin-windows
+    description: "Native window management — snap, move to space, switch desktops, browser tab operations."
+    categories: [windows]
+    tier: first-party
+
+  - id: basetypes
+    source: github:DrewBradfordXYZ/branchkit-plugin-basetypes
+    description: "Basetypes integration with BranchKit."
+    categories: [productivity, quickbase]
+    tier: approved

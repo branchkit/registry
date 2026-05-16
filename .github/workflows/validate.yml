@@ -1,9 +1,9 @@
-name: Validate Registry
+name: Validate Catalog
 
 on:
   pull_request:
     paths:
-      - 'registry.json'
+      - 'catalog.yaml'
 
 jobs:
   validate:
@@ -11,82 +11,175 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Validate registry.json
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y python3-yaml
+
+      - name: Validate catalog.yaml
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
 
-          # Check valid JSON
-          if ! jq empty registry.json 2>/dev/null; then
-            echo "❌ registry.json is not valid JSON"
-            exit 1
-          fi
-          echo "✅ Valid JSON"
+          python3 - <<'PYTHON'
+          import yaml
+          import sys
+          import json
+          import subprocess
+          import re
 
-          # Check version field
-          VERSION=$(jq -r '.version' registry.json)
-          if [ "$VERSION" != "1" ]; then
-            echo "❌ Expected version 1, got $VERSION"
-            exit 1
-          fi
-          echo "✅ Version: $VERSION"
+          def levenshtein(s1, s2):
+              if len(s1) < len(s2):
+                  return levenshtein(s2, s1)
+              if len(s2) == 0:
+                  return len(s1)
+              prev = range(len(s2) + 1)
+              for i, c1 in enumerate(s1):
+                  curr = [i + 1]
+                  for j, c2 in enumerate(s2):
+                      curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (c1 != c2)))
+                  prev = curr
+              return prev[-1]
 
-          # Validate each plugin entry
-          ERRORS=0
-          for PLUGIN_ID in $(jq -r '.plugins | keys[]' registry.json); do
-            # Check ID format: lowercase, digits, hyphens only
-            if ! echo "$PLUGIN_ID" | grep -qE '^[a-z0-9-]+$'; then
-              echo "❌ Invalid plugin ID: '$PLUGIN_ID' (must be lowercase letters, digits, hyphens)"
-              ERRORS=$((ERRORS + 1))
-              continue
-            fi
+          with open("catalog.yaml") as f:
+              cat = yaml.safe_load(f)
 
-            # Check required fields
-            SOURCE=$(jq -r ".plugins[\"$PLUGIN_ID\"].source // empty" registry.json)
-            DESC=$(jq -r ".plugins[\"$PLUGIN_ID\"].description // empty" registry.json)
+          if not cat or "plugins" not in cat:
+              print("error: catalog.yaml must have a 'plugins' key")
+              sys.exit(1)
 
-            if [ -z "$SOURCE" ]; then
-              echo "❌ Plugin '$PLUGIN_ID': missing 'source' field"
-              ERRORS=$((ERRORS + 1))
-            fi
-            if [ -z "$DESC" ]; then
-              echo "❌ Plugin '$PLUGIN_ID': missing 'description' field"
-              ERRORS=$((ERRORS + 1))
-            fi
+          errors = 0
+          warnings = 0
+          ids_seen = set()
+          sources_seen = set()
+          valid_tiers = {"first-party", "approved", "community"}
+          id_pattern = re.compile(r"^[a-z0-9-]+$")
+          source_pattern = re.compile(r"^github:[a-zA-Z0-9_.-]+/branchkit-plugin-[a-zA-Z0-9_.-]+$")
 
-            # Check source format: owner/repo
-            if [ -n "$SOURCE" ] && ! echo "$SOURCE" | grep -qE '^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$'; then
-              echo "❌ Plugin '$PLUGIN_ID': invalid source format '$SOURCE' (expected owner/repo)"
-              ERRORS=$((ERRORS + 1))
-            fi
+          for entry in cat["plugins"]:
+              plugin_id = entry.get("id", "")
 
-            # Check GitHub repo exists
-            if [ -n "$SOURCE" ]; then
-              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-                -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/$SOURCE")
-              if [ "$HTTP_STATUS" = "404" ]; then
-                echo "❌ Plugin '$PLUGIN_ID': repo '$SOURCE' does not exist on GitHub"
-                ERRORS=$((ERRORS + 1))
-              elif [ "$HTTP_STATUS" != "200" ]; then
-                echo "⚠️  Plugin '$PLUGIN_ID': could not verify repo '$SOURCE' (HTTP $HTTP_STATUS)"
-              else
-                echo "✅ Plugin '$PLUGIN_ID': $SOURCE exists"
-              fi
-            fi
-          done
+              # Check ID format
+              if not id_pattern.match(plugin_id):
+                  print(f"error: invalid plugin ID '{plugin_id}' (must be lowercase letters, digits, hyphens)")
+                  errors += 1
+                  continue
 
-          # Check for duplicate sources
-          DUPES=$(jq -r '.plugins[].source' registry.json | sort | uniq -d)
-          if [ -n "$DUPES" ]; then
-            echo "❌ Duplicate sources found: $DUPES"
-            ERRORS=$((ERRORS + 1))
-          fi
+              # Check duplicate IDs
+              if plugin_id in ids_seen:
+                  print(f"error: duplicate plugin ID '{plugin_id}'")
+                  errors += 1
+                  continue
+              ids_seen.add(plugin_id)
 
-          TOTAL=$(jq '.plugins | length' registry.json)
-          echo ""
-          echo "Validated $TOTAL plugins, $ERRORS errors"
+              # Check required fields
+              source = entry.get("source", "")
+              desc = entry.get("description", "")
+              tier = entry.get("tier", "")
 
-          if [ $ERRORS -gt 0 ]; then
-            exit 1
-          fi
+              if not source:
+                  print(f"error: plugin '{plugin_id}': missing 'source' field")
+                  errors += 1
+              if not desc:
+                  print(f"error: plugin '{plugin_id}': missing 'description' field")
+                  errors += 1
+              if tier not in valid_tiers:
+                  print(f"error: plugin '{plugin_id}': invalid tier '{tier}' (must be one of: {', '.join(sorted(valid_tiers))})")
+                  errors += 1
+
+              # Check source format: github:owner/branchkit-plugin-*
+              if source and not source_pattern.match(source):
+                  print(f"error: plugin '{plugin_id}': source '{source}' must match github:owner/branchkit-plugin-* format")
+                  errors += 1
+                  continue
+
+              # Check duplicate sources
+              if source in sources_seen:
+                  print(f"error: plugin '{plugin_id}': duplicate source '{source}'")
+                  errors += 1
+              sources_seen.add(source)
+
+              # Verify plugin ID matches repo name convention
+              if source:
+                  repo_name = source.split("/")[-1]
+                  expected_id = repo_name.removeprefix("branchkit-plugin-")
+                  if plugin_id != expected_id:
+                      print(f"error: plugin '{plugin_id}': ID must match repo name (repo 'branchkit-plugin-{expected_id}' expects id '{expected_id}')")
+                      errors += 1
+
+              # Check GitHub repo exists
+              if source:
+                  owner_repo = source.removeprefix("github:")
+                  result = subprocess.run(
+                      ["gh", "api", f"repos/{owner_repo}", "--silent"],
+                      capture_output=True
+                  )
+                  if result.returncode != 0:
+                      print(f"error: plugin '{plugin_id}': repo '{owner_repo}' not found on GitHub")
+                      errors += 1
+                  else:
+                      print(f"pass: plugin '{plugin_id}': {owner_repo} exists")
+
+              # Fetch and validate plugin.json from repo
+              if source and errors == 0:
+                  owner_repo = source.removeprefix("github:")
+                  result = subprocess.run(
+                      ["gh", "api", f"repos/{owner_repo}/contents/plugin.json",
+                       "--header", "Accept: application/vnd.github.raw+json"],
+                      capture_output=True, text=True
+                  )
+                  if result.returncode != 0:
+                      print(f"error: plugin '{plugin_id}': could not fetch plugin.json from {owner_repo}")
+                      errors += 1
+                  else:
+                      try:
+                          manifest = json.loads(result.stdout)
+                          manifest_id = manifest.get("id", "")
+                          if manifest_id != plugin_id:
+                              print(f"error: plugin '{plugin_id}': plugin.json has id '{manifest_id}', expected '{plugin_id}'")
+                              errors += 1
+                          else:
+                              print(f"pass: plugin '{plugin_id}': plugin.json ID matches")
+                      except json.JSONDecodeError:
+                          print(f"error: plugin '{plugin_id}': plugin.json is not valid JSON")
+                          errors += 1
+
+          # Typosquatting check: Levenshtein distance between all pairs of IDs
+          all_ids = list(ids_seen)
+          for i, id1 in enumerate(all_ids):
+              for id2 in all_ids[i+1:]:
+                  dist = levenshtein(id1, id2)
+                  max_len = max(len(id1), len(id2))
+                  if dist <= 2 and max_len > 3:
+                      print(f"warning: typosquat risk: '{id1}' and '{id2}' (distance={dist}) — requires manual review")
+                      warnings += 1
+
+          print(f"\nValidated {len(cat['plugins'])} plugins: {errors} errors, {warnings} warnings")
+
+          if errors > 0:
+              sys.exit(1)
+          if warnings > 0:
+              print("Typosquat warnings present — PR requires manual review")
+              sys.exit(2)
+          PYTHON
+
+  auto-merge:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.fork == true
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Auto-merge community submissions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --squash \
+            --auto

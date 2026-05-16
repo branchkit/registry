@@ -1,53 +1,61 @@
-# BranchKit Plugin Registry
+# BranchKit Plugin Catalog
 
-This repository contains the plugin registry for [BranchKit](https://github.com/branchkit). It maps short plugin names to their GitHub sources, enabling:
-
-```bash
-branchkit-cli plugin install voice
-```
-
-instead of:
+This repository contains the plugin catalog for [BranchKit](https://github.com/branchkit). It maps short plugin names to their GitHub sources and provides trust tier information.
 
 ```bash
-branchkit-cli plugin install branchkit/branchkit-plugin-voice
+branchkit-cli plugin install keyboard
+# resolves via catalog → github:branchkit/branchkit-plugin-keyboard
 ```
 
-## Registry format
+For unlisted plugins, use the full source URL:
 
-`registry.json` maps plugin IDs to their sources:
+```bash
+branchkit-cli plugin install github:somedev/branchkit-plugin-foo
+```
 
-```json
-{
-  "version": 1,
-  "plugins": {
-    "my-plugin": {
-      "source": "owner/branchkit-plugin-my-plugin",
-      "description": "What it does.",
-      "categories": ["category"],
-      "verified": false
-    }
-  }
-}
+## Catalog format
+
+`catalog.yaml` lists all known plugins:
+
+```yaml
+plugins:
+  - id: my-plugin
+    source: github:owner/branchkit-plugin-my-plugin
+    description: "What it does."
+    categories: [category]
+    tier: community
 ```
 
 Fields:
-- **source** (required) — GitHub `owner/repo`
-- **description** (required) — one-liner for search/browse
-- **categories** (optional) — tags for filtering
-- **verified** (default false) — `true` for plugins published by the `branchkit` org or reviewed by maintainers
+- **id** (required) — plugin ID, lowercase letters, digits, and hyphens
+- **source** (required) — `github:owner/branchkit-plugin-{id}` format
+- **description** (required) — one-liner
+- **categories** (required) — tags for filtering
+- **tier** (required) — `first-party`, `approved`, or `community`
 
 ## Adding a plugin
 
 1. Fork this repository
-2. Add your plugin to `registry.json`
+2. Add your plugin entry to `catalog.yaml`
 3. Open a pull request
 
-Requirements:
-- Plugin repo must exist and contain a valid `plugin.json`
-- Plugin ID must be lowercase letters, digits, and hyphens (`[a-z0-9-]+`)
-- Plugin repo should follow the `branchkit-plugin-{name}` naming convention
-- Description should be a single sentence
+CI validates your submission automatically:
+- Repo must exist and contain a valid `plugin.json`
+- Plugin ID in `plugin.json` must match the `id` field in the catalog
+- Repo must follow `branchkit-plugin-{name}` naming convention
+- No ID conflicts with existing entries
+- No typosquatting (Levenshtein distance check against existing names)
+
+**CI green + no typosquat flag = auto-merge as `tier: community`.** No manual review needed for listing.
+
+## Trust tiers
+
+| Tier | Meaning |
+|------|---------|
+| `first-party` | Published by the `branchkit` org |
+| `approved` | Reviewed and endorsed by BranchKit maintainers |
+| `community` | Listed, CI-validated, not yet reviewed |
 
 ## How it works
 
-The [branchkit-cli](https://github.com/branchkit/branchkit-cli) fetches this registry to resolve short names to GitHub sources. The registry is a name mapping, not a package host — all artifacts live in GitHub Releases.
+The [branchkit-cli](https://github.com/branchkit/branchkit-cli) fetches this catalog to resolve short names to GitHub sources. The catalog is a name mapping with trust metadata — all artifacts live in GitHub Releases.
