@@ -56,6 +56,16 @@ CI validates your submission automatically:
 | `approved` | Reviewed and endorsed by BranchKit maintainers |
 | `community` | Listed, CI-validated, not yet reviewed |
 
+## Conformance badge
+
+Add the conformance workflow to your plugin repo to show a passing badge on the catalog page and at install time:
+
+```bash
+cp workflows/conformance.yml your-plugin/.github/workflows/conformance.yml
+```
+
+Or use `branchkit-cli dev init` which includes it automatically. The workflow runs `branchkit-cli dev test . --static-only` on every release tag. The CLI checks the result via GitHub's check runs API and shows the status at install time.
+
 ## How it works
 
 The [branchkit-cli](https://github.com/branchkit/branchkit-cli) fetches this catalog to resolve short names to GitHub sources. The catalog is a name mapping with trust metadata — all artifacts live in GitHub Releases.
