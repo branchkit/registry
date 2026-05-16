@@ -1,0 +1,127 @@
+name: Stale Catalog Check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Weekly on Monday at 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check catalog entries
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install pyyaml requests
+          python3 << 'SCRIPT'
+          import yaml
+          import requests
+          import os
+          import json
+
+          token = os.environ.get("GITHUB_TOKEN", "")
+          headers = {"Authorization": f"Bearer {token}"} if token else {}
+          headers["User-Agent"] = "branchkit-stale-check"
+
+          with open("catalog.yaml") as f:
+              catalog = yaml.safe_load(f)
+
+          stale = []
+          for plugin in catalog.get("plugins", []):
+              source = plugin.get("source", "")
+              if not source.startswith("github:"):
+                  continue
+              repo_path = source.removeprefix("github:")
+
+              # Check if repo exists
+              resp = requests.get(
+                  f"https://api.github.com/repos/{repo_path}",
+                  headers=headers
+              )
+              if resp.status_code == 404:
+                  stale.append({"id": plugin["id"], "reason": "repo not found"})
+                  continue
+              if resp.status_code == 200:
+                  repo_data = resp.json()
+                  if repo_data.get("archived"):
+                      stale.append({"id": plugin["id"], "reason": "repo archived"})
+                      continue
+
+              # Check if plugin.json exists
+              resp = requests.get(
+                  f"https://api.github.com/repos/{repo_path}/contents/plugin.json",
+                  headers=headers
+              )
+              if resp.status_code == 404:
+                  stale.append({"id": plugin["id"], "reason": "no plugin.json"})
+
+          if stale:
+              print(f"Found {len(stale)} stale entries:")
+              for s in stale:
+                  print(f"  - {s['id']}: {s['reason']}")
+              with open("stale.json", "w") as f:
+                  json.dump(stale, f)
+              # Set output
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("has_stale=true\n")
+          else:
+              print("All catalog entries are valid.")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("has_stale=false\n")
+          SCRIPT
+
+      - name: Remove stale entries
+        if: steps.check.outputs.has_stale == 'true'
+        run: |
+          python3 << 'SCRIPT'
+          import yaml
+          import json
+
+          with open("stale.json") as f:
+              stale = json.load(f)
+          stale_ids = {s["id"] for s in stale}
+
+          with open("catalog.yaml") as f:
+              catalog = yaml.safe_load(f)
+
+          catalog["plugins"] = [
+              p for p in catalog.get("plugins", [])
+              if p["id"] not in stale_ids
+          ]
+
+          with open("catalog.yaml", "w") as f:
+              yaml.dump(catalog, f, default_flow_style=False, sort_keys=False)
+          SCRIPT
+
+      - name: Create PR
+        if: steps.check.outputs.has_stale == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="stale-cleanup-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git add catalog.yaml
+          git commit -m "remove stale catalog entries"
+          git push origin "$BRANCH"
+
+          STALE=$(cat stale.json | python3 -c "import sys,json; entries=json.load(sys.stdin); print('\n'.join(f'- **{e[\"id\"]}**: {e[\"reason\"]}' for e in entries))")
+          gh pr create \
+            --title "Remove stale catalog entries" \
+            --body "The weekly stale check found entries pointing to repos that no longer exist or are archived.
+
+          ## Removed entries
+
+          $STALE
+
+          This PR was created automatically by the stale-check workflow." \
+            --base main
