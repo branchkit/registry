@@ -66,6 +66,21 @@ cp workflows/conformance.yml your-plugin/.github/workflows/conformance.yml
 
 Or use `branchkit-cli dev init` which includes it automatically. The workflow runs `branchkit-cli dev test . --static-only` on every release tag. The CLI checks the result via GitHub's check runs API and shows the status at install time.
 
+## Blocklist
+
+`blocklist.json` contains source URLs that have been flagged as malicious or harmful. The CLI checks this before every install and on app startup for installed plugins.
+
+```json
+{
+  "blocked": [
+    { "source": "github:badactor/branchkit-plugin-malware", "reason": "Exfiltrates keystrokes" }
+  ],
+  "updated_at": "2026-05-16T00:00:00Z"
+}
+```
+
+Blocklist entries are added reactively when issues are reported. To flag a plugin, open an issue on this repository.
+
 ## How it works
 
 The [branchkit-cli](https://github.com/branchkit/branchkit-cli) fetches this catalog to resolve short names to GitHub sources. The catalog is a name mapping with trust metadata — all artifacts live in GitHub Releases.
