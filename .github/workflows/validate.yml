@@ -148,12 +148,14 @@ jobs:
                           errors += 1
 
           # Typosquatting check: Levenshtein distance between all pairs of IDs
+          # Threshold scales with name length to reduce false positives on short names
           all_ids = list(ids_seen)
           for i, id1 in enumerate(all_ids):
               for id2 in all_ids[i+1:]:
                   dist = levenshtein(id1, id2)
-                  max_len = max(len(id1), len(id2))
-                  if dist <= 2 and max_len > 3:
+                  min_len = min(len(id1), len(id2))
+                  threshold = 1 if min_len <= 5 else 2
+                  if dist <= threshold and min_len > 3:
                       print(f"warning: typosquat risk: '{id1}' and '{id2}' (distance={dist}) — requires manual review")
                       warnings += 1
 
