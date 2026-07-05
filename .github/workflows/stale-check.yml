@@ -41,21 +41,22 @@ jobs:
                   continue
               repo_path = source.removeprefix("github:")
 
-              # Check if repo exists
               resp = requests.get(
                   f"https://api.github.com/repos/{repo_path}",
                   headers=headers
               )
-              if resp.status_code == 404:
-                  stale.append({"id": plugin["id"], "reason": "repo not found"})
+              # Stale requires positive evidence. This job's repo-scoped
+              # token sees private, deleted, and renamed repos all as 404 —
+              # pre-launch the entire first-party tier is private, and
+              # treating 404 as stale gutted the catalog every week.
+              if resp.status_code != 200:
+                  print(f"  skip {plugin['id']}: repo check HTTP {resp.status_code} (private or unreachable, not evidence of staleness)")
                   continue
-              if resp.status_code == 200:
-                  repo_data = resp.json()
-                  if repo_data.get("archived"):
-                      stale.append({"id": plugin["id"], "reason": "repo archived"})
-                      continue
+              if resp.json().get("archived"):
+                  stale.append({"id": plugin["id"], "reason": "repo archived"})
+                  continue
 
-              # Check if plugin.json exists
+              # Repo is readable, so a missing plugin.json is a real absence
               resp = requests.get(
                   f"https://api.github.com/repos/{repo_path}/contents/plugin.json",
                   headers=headers
@@ -101,6 +102,9 @@ jobs:
               yaml.dump(catalog, f, default_flow_style=False, sort_keys=False)
           SCRIPT
 
+      # Requires "Allow GitHub Actions to create and approve pull requests"
+      # (repo Settings → Actions → General) — currently off, which makes this
+      # step fail. Flip it when third-party entries make stale findings real.
       - name: Create PR
         if: steps.check.outputs.has_stale == 'true'
         env:
