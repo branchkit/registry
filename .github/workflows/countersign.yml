@@ -1,0 +1,66 @@
+name: Counter-sign Catalog
+
+# Runs on the trusted main branch (NOT on pull requests) so the registry
+# signing key is only ever available in a context fork PRs can't reach. For
+# each catalog entry with a published release, it computes BranchKit's
+# counter-signature over the plugin's manifest and records it in the entry,
+# then commits the signatures back. The counter-signature is what an install
+# verifies to confirm a canonical registry listing (the anti-clone moat).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'catalog.yaml'
+
+# Guard against an infinite loop: this workflow commits catalog.yaml, which
+# would re-trigger it. The commit message carries [skip ci] (GitHub skips the
+# run), and we also no-op when nothing changed.
+concurrency:
+  group: countersign
+  cancel-in-progress: false
+
+jobs:
+  countersign:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: |
+          python3 -m pip install --quiet ruamel.yaml
+          os=linux
+          arch=amd64
+          url="https://github.com/branchkit/branchkit-cli/releases/latest/download/branchkit-cli-${os}-${arch}.tar.gz"
+          curl -fsSL "$url" -o /tmp/cli.tar.gz
+          sudo tar -xzf /tmp/cli.tar.gz -C /usr/local/bin/
+          sudo chmod +x /usr/local/bin/branchkit-cli
+
+      - name: Counter-sign entries with releases
+        id: sign
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCHKIT_REGISTRY_KEY: ${{ secrets.BRANCHKIT_REGISTRY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BRANCHKIT_REGISTRY_KEY:-}" ]; then
+            echo "BRANCHKIT_REGISTRY_KEY secret not set — cannot counter-sign."
+            echo "Set it in the repo's Actions secrets (from 'branchkit-cli registry keygen')."
+            exit 1
+          fi
+          python3 .github/scripts/countersign.py
+
+      - name: Commit signatures
+        run: |
+          set -euo pipefail
+          if git diff --quiet catalog.yaml; then
+            echo "No signature changes."
+            exit 0
+          fi
+          git config user.name "branchkit-registry-bot"
+          git config user.email "bot@branchkit.dev"
+          git add catalog.yaml
+          # [skip ci] stops this push from re-triggering the workflow.
+          git commit -m "registry: counter-sign catalog entries [skip ci]"
+          git push
