@@ -1,0 +1,100 @@
+name: "BranchKit Plugin Release"
+description: >
+  Package, sign, and upload a built BranchKit plugin to a GitHub release.
+  Language-agnostic: you build the binary (Go, Rust, Python, anything that
+  speaks the plugin protocol); this action does everything after —
+  reproducible tarball, checksum, Sigstore attestation, and release upload.
+  Call it once per target platform (e.g. in a build matrix).
+
+# Composite action: runs as a step inside YOUR job, so it shares the
+# filesystem with your build step. It runs with your repository's OIDC
+# identity, so the attestation's certificate names YOUR repo — which is what
+# BranchKit's install path checks against your plugin's `publisher` field.
+#
+# Your job MUST grant these permissions (the action can't grant them itself):
+#   permissions:
+#     contents: write      # upload release assets
+#     id-token: write      # OIDC for keyless signing
+#     attestations: write  # record the attestation
+
+inputs:
+  binary:
+    description: "Path to the built plugin binary for this platform."
+    required: true
+  goos:
+    description: "Target OS label (linux, darwin, windows)."
+    required: true
+  goarch:
+    description: "Target arch label (amd64, arm64)."
+    required: true
+  tag:
+    description: "Release tag to upload to (e.g. the pushed tag)."
+    required: true
+  plugin-dir:
+    description: "Directory containing plugin.json (and collection_data)."
+    required: false
+    default: "."
+  name:
+    description: "Plugin short name for the artifact. Defaults to the manifest id."
+    required: false
+    default: ""
+  cli-version:
+    description: "branchkit-cli release to use for packaging."
+    required: false
+    default: "latest"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install branchkit-cli
+      shell: bash
+      run: |
+        set -euo pipefail
+        if command -v branchkit-cli >/dev/null 2>&1; then exit 0; fi
+        os=$(uname -s | tr '[:upper:]' '[:lower:]')
+        arch=$(uname -m); [ "$arch" = "x86_64" ] && arch=amd64; [ "$arch" = "aarch64" ] && arch=arm64
+        url="https://github.com/branchkit/branchkit-cli/releases/${{ inputs.cli-version }}/download/branchkit-cli-${os}-${arch}.tar.gz"
+        curl -fsSL "$url" -o /tmp/branchkit-cli.tar.gz
+        sudo tar -xzf /tmp/branchkit-cli.tar.gz -C /usr/local/bin/
+        sudo chmod +x /usr/local/bin/branchkit-cli
+
+    - name: Package
+      id: package
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p dist
+        name_arg=""
+        [ -n "${{ inputs.name }}" ] && name_arg="--name ${{ inputs.name }}"
+        branchkit-cli plugin package "${{ inputs.plugin-dir }}" \
+          --binary "${{ inputs.binary }}" \
+          --os "${{ inputs.goos }}" --arch "${{ inputs.goarch }}" \
+          --out dist $name_arg
+        # Resolve the produced tarball name (x86_64 label for amd64).
+        arch_label="${{ inputs.goarch }}"; [ "$arch_label" = "amd64" ] && arch_label=x86_64
+        base=$(ls dist/branchkit-plugin-*-${{ inputs.goos }}-${arch_label}.tar.gz)
+        echo "tarball=$base" >> "$GITHUB_OUTPUT"
+
+    - name: Attest (Sigstore keyless, your repo's identity)
+      id: attest
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: ${{ steps.package.outputs.tarball }}
+
+    - name: Export the bundle beside the artifact
+      shell: bash
+      run: |
+        set -euo pipefail
+        # BranchKit's install path looks for <artifact>.sigstore.json.
+        cp "${{ steps.attest.outputs.bundle-path }}" \
+           "${{ steps.package.outputs.tarball }}.sigstore.json"
+
+    - name: Upload to the release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        t="${{ steps.package.outputs.tarball }}"
+        gh release upload "${{ inputs.tag }}" \
+          "$t" "$t.sha256" "$t.sigstore.json" --clobber

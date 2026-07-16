@@ -1,0 +1,71 @@
+# BranchKit Plugin Release
+#
+# Copy this into your plugin repo at .github/workflows/release.yml.
+# It builds, signs, and publishes your plugin on every version tag.
+#
+# Only ONE step is yours to fill in: the build. Everything after — packaging,
+# checksums, Sigstore signing, and the release upload — is the shared
+# branchkit/registry/release-action, identical for every plugin in every
+# language. BranchKit plugins speak a language-agnostic protocol (JSON-RPC
+# over stdio); the SDKs are conveniences, not requirements. Go, Rust, Python,
+# or a shell script all release through this same workflow.
+#
+# Before using: set your plugin's `publisher` in plugin.json to
+# "github:YOUR-ORG" so installs can bind the verified identity to your plugin.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # upload release assets
+      id-token: write      # OIDC for keyless signing
+      attestations: write  # record the attestation
+    strategy:
+      matrix:
+        include:
+          - { goos: darwin, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: linux, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      # === YOUR BUILD STEP — the only language-specific part. =============
+      # Produce ONE binary for this matrix leg's ${{ matrix.goos }}/${{ matrix.goarch }}
+      # and write it to out/<your-binary> (matching plugin.json's `run` field).
+      #
+      # Go example:
+      #   - uses: actions/setup-go@v5
+      #     with: { go-version: '1.24' }
+      #   - run: |
+      #       mkdir -p out
+      #       GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+      #         go build -o out/myplugin ./src
+      #
+      # Rust example:
+      #   - run: |
+      #       rustup target add <triple-for-matrix>
+      #       cargo build --release --target <triple>
+      #       mkdir -p out && cp target/<triple>/release/myplugin out/myplugin
+      #
+      # Python example (self-contained with shiv/pex):
+      #   - run: |
+      #       mkdir -p out
+      #       shiv -o out/myplugin -e myplugin.__main__:main .
+      - name: Build
+        run: echo "replace this with your build; write the binary to out/" && exit 1
+
+      # === SHARED — package + sign + upload. Do not modify. ==============
+      - name: Package, sign, release
+        uses: branchkit/registry/release-action@main
+        with:
+          binary: out/myplugin           # match plugin.json `run` (strip ./)
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          tag: ${{ github.ref_name }}
