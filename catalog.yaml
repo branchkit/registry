@@ -35,6 +35,12 @@ plugins:
     categories: [windows]
     tier: first-party
 
+  - id: scripts
+    source: github:branchkit/branchkit-plugin-scripts
+    description: "User scripts host — single-file voice commands, event handlers, and timers in Lua, JavaScript, TypeScript, or Python."
+    categories: [scripting, productivity]
+    tier: first-party
+
   - id: basetypes
     source: github:DrewBradfordXYZ/branchkit-plugin-basetypes
     description: "Basetypes integration with BranchKit."
