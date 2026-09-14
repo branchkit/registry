@@ -4,6 +4,7 @@ plugins:
     description: "Core voice commands, phonetic alphabet, calibration, dictation timing."
     categories: [input, accessibility]
     tier: first-party
+    collections: [alphabet, direction, number, voice_commands]
 
   - id: tiling
     source: github:branchkit/branchkit-plugin-tiling
@@ -22,12 +23,14 @@ plugins:
     description: "Global hotkey capture, keybind registry, and input simulation."
     categories: [input]
     tier: first-party
+    collections: [keybinds, keys, layout_characters, modifiers]
 
   - id: system
     source: github:branchkit/branchkit-plugin-system
     description: "Application registry, app switching HUD, audio control, and system settings."
     categories: [system]
     tier: first-party
+    collections: [app_traits, apps, audio_inputs, audio_outputs]
 
   - id: windows
     source: github:branchkit/branchkit-plugin-windows
