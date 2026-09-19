@@ -46,7 +46,7 @@ plugins:
 
   - id: speech
     source: github:branchkit/branchkit-plugin-speech
-    description: "Spoken feedback — reads what plugins report through output.state aloud: problems, modes and their choices, and, for a person who cannot see the screen, what happened."
+    description: "Feedback — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
     categories: [accessibility]
     tier: first-party
 
