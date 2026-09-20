@@ -44,9 +44,9 @@ plugins:
     categories: [scripting, productivity]
     tier: first-party
 
-  - id: feedback
-    source: github:branchkit/branchkit-plugin-feedback
-    description: "Feedback — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
+  - id: announcements
+    source: github:branchkit/branchkit-plugin-announcements
+    description: "Announcements — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
     categories: [accessibility]
     tier: first-party
 
