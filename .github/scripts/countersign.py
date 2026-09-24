@@ -10,7 +10,8 @@ released manifest is left untouched, so a no-op run makes no commit.
 The counter-signature binds the MANIFEST hash only (id + publisher live in
 plugin.json) — platform- and version-independent, so one signature covers
 every platform artifact and survives new releases that don't change the
-manifest. See DESIGN_PLUGIN_SIGNING_CHAIN.md.
+manifest. Only BranchKit holds the signing key, so a cloned registry cannot
+mint a counter-signature a real install accepts.
 
 Run in the trusted main-branch workflow only (needs BRANCHKIT_REGISTRY_KEY).
 """
