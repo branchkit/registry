@@ -33,7 +33,7 @@ plugins:
     collections: [app_traits, apps, audio_inputs, audio_outputs]
 
   - id: placement
-    source: github:branchkit/branchkit-plugin-windows
+    source: github:branchkit/branchkit-plugin-placement
     description: "Put any window where you want it — a position, a screen, a desktop — without a pointer. Snap, move to a desktop, switch desktops."
     categories: [windows]
     tier: first-party
