@@ -21,6 +21,8 @@ jobs:
       - name: Validate catalog.yaml
         env:
           GH_TOKEN: ${{ github.token }}
+          FROM_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -e
 
@@ -46,6 +48,21 @@ jobs:
 
           with open("catalog.yaml") as f:
               cat = yaml.safe_load(f)
+
+          # The catalog as it was before this PR, to tell which entries the
+          # PR adds or changes. A fork PR is merged without review, so it may
+          # only add or change community entries: a tier is a trust decision
+          # (first-party plugins get their declared access granted at install).
+          import os
+          from_fork = os.environ.get("FROM_FORK") == "true"
+          base = {}
+          base_sha = os.environ.get("BASE_SHA", "")
+          if base_sha:
+              old = subprocess.run(["git", "show", f"{base_sha}:catalog.yaml"],
+                                   capture_output=True, text=True)
+              if old.returncode == 0:
+                  for e in (yaml.safe_load(old.stdout) or {}).get("plugins", []) or []:
+                      base[e.get("id", "")] = e
 
           if not cat or "plugins" not in cat:
               print("error: catalog.yaml must have a 'plugins' key")
@@ -88,6 +105,18 @@ jobs:
                   errors += 1
               if tier not in valid_tiers:
                   print(f"error: plugin '{plugin_id}': invalid tier '{tier}' (must be one of: {', '.join(sorted(valid_tiers))})")
+                  errors += 1
+
+              # first-party means BranchKit's own: the source must be in the
+              # branchkit organization, whoever opens the PR.
+              owner = source.removeprefix("github:").split("/")[0].lower() if source else ""
+              if tier == "first-party" and owner != "branchkit":
+                  print(f"error: plugin '{plugin_id}': tier 'first-party' needs a source under github:branchkit/, not '{source}'")
+                  errors += 1
+
+              # A fork PR may add or change community entries only.
+              if from_fork and base.get(plugin_id) != entry and tier != "community":
+                  print(f"error: plugin '{plugin_id}': a pull request from a fork may only add or change 'community' entries (this one is '{tier}'); a maintainer sets other tiers")
                   errors += 1
 
               # Check source format: github:owner/branchkit-plugin-*
