@@ -50,6 +50,12 @@ plugins:
     categories: [accessibility]
     tier: first-party
 
+  - id: pointer
+    source: github:branchkit/branchkit-plugin-pointer
+    description: "Show numbers — act on any control in the focused window by voice: its buttons, links, menus, checkboxes and fields, each given a codeword, read through the accessibility tree only when you ask."
+    categories: [accessibility, input]
+    tier: first-party
+
   - id: basetypes
     source: github:DrewBradfordXYZ/branchkit-plugin-basetypes
     description: "Basetypes integration with BranchKit."
