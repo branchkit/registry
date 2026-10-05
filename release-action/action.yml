@@ -38,6 +38,14 @@ inputs:
     description: "Plugin short name for the artifact. Defaults to the manifest id."
     required: false
     default: ""
+  exclude:
+    description: >
+      Space-separated top-level names in the plugin directory to leave out of
+      the archive, beyond the packager's own list (source, VCS, lock files).
+      For build inputs only this repository has, such as `stages` when a
+      stage's source lives there and its built binary sits beside plugin.json.
+    required: false
+    default: ""
   cli-version:
     description: "branchkit-cli release to use for packaging."
     required: false
@@ -72,10 +80,12 @@ runs:
         mkdir -p dist
         name_arg=""
         [ -n "${{ inputs.name }}" ] && name_arg="--name ${{ inputs.name }}"
+        exclude_args=""
+        for e in ${{ inputs.exclude }}; do exclude_args="$exclude_args --exclude $e"; done
         branchkit-cli plugin package "${{ inputs.plugin-dir }}" \
           --binary "${{ inputs.binary }}" \
           --os "${{ inputs.goos }}" --arch "${{ inputs.goarch }}" \
-          --out dist $name_arg
+          --out dist $name_arg $exclude_args
         # Resolve the produced tarball name (x86_64 label for amd64).
         arch_label="${{ inputs.goarch }}"; [ "$arch_label" = "amd64" ] && arch_label=x86_64
         base=$(ls dist/branchkit-plugin-*-${{ inputs.goos }}-${arch_label}.tar.gz)
