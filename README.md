@@ -1,21 +1,42 @@
-# BranchKit Plugin Catalog
+# BranchKit plugin registry
 
-This repository contains the plugin catalog for [BranchKit](https://github.com/branchkit). It maps short plugin names to their GitHub sources and provides trust tier information.
+The public plugin catalog for [BranchKit](https://github.com/branchkit), an
+accessibility plugin platform for the desktop. It maps short plugin names to
+their GitHub sources, records a trust tier for each, and carries the blocklist
+and the shared release action that plugins publish with.
+
+[branchkit-cli](https://github.com/branchkit/branchkit-cli) reads it:
 
 ```bash
 branchkit-cli plugin install keyboard
-# resolves via catalog → github:branchkit/branchkit-plugin-keyboard
+# resolves through catalog.yaml to github:branchkit/branchkit-plugin-keyboard
 ```
 
-For unlisted plugins, use the full source URL:
+A plugin that is not listed installs by its source:
 
 ```bash
 branchkit-cli plugin install github:somedev/branchkit-plugin-foo
 ```
 
-## Catalog format
+The catalog is a name mapping with trust metadata. The plugins themselves are
+downloaded from each plugin's GitHub Releases.
 
-`catalog.yaml` lists all known plugins:
+**Status.** BranchKit is pre-launch. No plugin in the catalog has published a
+release yet, so installing by catalog name does not succeed today, and some
+first-party entries point at repositories that stay private until launch.
+
+## What is here
+
+| Path | What it is |
+|---|---|
+| `catalog.yaml` | The catalog |
+| `blocklist.json` | Sources the CLI refuses to install |
+| `release-action/` | The shared GitHub Action that packages, signs and uploads a plugin release |
+| `workflows/release.yml` | A release workflow to copy into a plugin repository |
+| `workflows/conformance.yml` | A conformance-check workflow to copy into a plugin repository |
+| `.github/` | This repository's own automation: catalog validation, counter-signing, the stale-entry check |
+
+## Catalog format
 
 ```yaml
 plugins:
@@ -26,49 +47,78 @@ plugins:
     tier: community
 ```
 
-Fields:
-- **id** (required) — plugin ID, lowercase letters, digits, and hyphens
-- **source** (required) — `github:owner/branchkit-plugin-{id}` format
-- **description** (required) — one-liner
-- **categories** (required) — tags for filtering
-- **tier** (required) — `first-party`, `approved`, or `community`
+| Field | |
+|---|---|
+| `id` | Required. The plugin's ID: lowercase letters, digits and hyphens. Must equal the `id` in the plugin's `plugin.json` and the repository name after `branchkit-plugin-` |
+| `source` | Required. `github:owner/branchkit-plugin-<id>` |
+| `description` | Required. One line |
+| `categories` | Tags for filtering |
+| `tier` | Required. `first-party`, `approved` or `community` |
+| `collections` | Optional. Bare collection names the plugin introduces, so authors can find an existing vocabulary before inventing a rival name (`branchkit-cli plugin package` warns on overlap) |
+| `manifest_sha256`, `registry_signature` | Written by automation, never by hand. See [Counter-signature](#counter-signature) |
 
 ## Adding a plugin
 
-1. Fork this repository
-2. Add your plugin entry to `catalog.yaml`
-3. Open a pull request
+1. Fork this repository.
+2. Add an entry to `catalog.yaml` with `tier: community`.
+3. Open a pull request.
 
-CI validates your submission automatically:
-- Repo must exist and contain a valid `plugin.json`
-- Plugin ID in `plugin.json` must match the `id` field in the catalog
-- Repo must follow `branchkit-plugin-{name}` naming convention
-- No ID conflicts with existing entries
-- No typosquatting (Levenshtein distance check against existing names)
+CI checks the submission:
 
-**CI green + no typosquat flag = auto-merge as `tier: community`.** No manual review needed for listing.
+- the ID format, and no duplicate IDs or sources;
+- `source` matches `github:owner/branchkit-plugin-*`, and the ID matches the
+  repository name;
+- the repository exists and has a `plugin.json` at its root whose `id` matches;
+- a pull request from a fork adds or changes `community` entries only;
+  maintainers set the other tiers;
+- `first-party` entries point under `github:branchkit/`;
+- no ID is within a small edit distance of another (a typosquatting check).
+
+A fork pull request that passes with no typosquatting warning is merged
+automatically as `community`. A warning holds it for manual review.
 
 ## Trust tiers
 
 | Tier | Meaning |
-|------|---------|
-| `first-party` | Published by the `branchkit` org |
+|---|---|
+| `first-party` | Published by the `branchkit` organization |
 | `approved` | Reviewed and endorsed by BranchKit maintainers |
-| `community` | Listed, CI-validated, not yet reviewed |
+| `community` | Listed and CI-validated, not reviewed |
 
-## Conformance badge
+## Releasing a plugin
 
-Add the conformance workflow to your plugin repo to show a passing badge on the catalog page and at install time:
+`release-action/` is a composite action that runs inside your own release job.
+You build the binary, in any language; the action does the rest: a
+reproducible tarball named `branchkit-plugin-<name>-<os>-<arch>.tar.gz`, its
+`.sha256` checksum, a Sigstore attestation (keyless, under your repository's
+own GitHub identity) and the upload to the GitHub release. Call it once per
+target platform. `workflows/release.yml` is a complete workflow to copy; the Go
+template from `branchkit-cli dev init` includes the same job.
 
-```bash
-cp workflows/conformance.yml your-plugin/.github/workflows/conformance.yml
-```
+Set `publisher` in your `plugin.json` to `"github:YOUR-ORG"`. At install, the
+CLI checks the attestation against it and refuses a plugin whose attestation
+contradicts the publisher it claims. Unsigned plugins still install, as
+unsigned.
 
-Or use `branchkit-cli dev init` which includes it automatically. The workflow runs `branchkit-cli dev test . --static-only` on every release tag. The CLI checks the result via GitHub's check runs API and shows the status at install time.
+`workflows/conformance.yml` runs `branchkit-cli dev test . --static-only` on
+every release tag. At install, the CLI reads that check's result for the tag
+being installed and shows it.
+
+Both workflows and the release action download a released `branchkit-cli`
+binary. None is published yet, so they cannot complete until one is.
+
+## Counter-signature
+
+When `catalog.yaml` changes on `main`, a workflow signs the manifest of each
+entry that has a release and writes `manifest_sha256` and `registry_signature`
+into the entry. Installing by catalog name checks that signature, so a copy of
+a plugin republished under another name cannot claim the listing. A present but
+invalid signature is refused. The signing key exists only in this repository's
+Actions secrets and is never available to pull requests.
 
 ## Blocklist
 
-`blocklist.json` contains source URLs that have been flagged as malicious or harmful. The CLI checks this before every install and on app startup for installed plugins.
+`blocklist.json` lists sources flagged as malicious or harmful:
 
 ```json
 {
@@ -79,8 +129,17 @@ Or use `branchkit-cli dev init` which includes it automatically. The workflow ru
 }
 ```
 
-Blocklist entries are added reactively when issues are reported. To flag a plugin, open an issue on this repository.
+`branchkit-cli plugin install` refuses a blocklisted source unless given
+`--force`, and `branchkit-cli plugin check-blocklist` checks plugins already
+installed. Entries are added when a problem is reported; to flag a plugin, open
+an issue on this repository.
 
-## How it works
+## Stale entries
 
-The [branchkit-cli](https://github.com/branchkit/branchkit-cli) fetches this catalog to resolve short names to GitHub sources. The catalog is a name mapping with trust metadata — all artifacts live in GitHub Releases.
+A weekly job opens a pull request removing entries whose repository is archived
+or no longer has a `plugin.json`. A repository it cannot read (private,
+deleted or renamed) is not treated as stale.
+
+## License
+
+MIT
