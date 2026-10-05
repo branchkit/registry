@@ -59,8 +59,16 @@ runs:
       run: |
         set -euo pipefail
         if command -v branchkit-cli >/dev/null 2>&1; then exit 0; fi
-        os=$(uname -s | tr '[:upper:]' '[:lower:]')
-        arch=$(uname -m); [ "$arch" = "x86_64" ] && arch=amd64; [ "$arch" = "aarch64" ] && arch=arm64
+        # The runner's own labels, not uname: on Windows uname names the
+        # Unix layer (MINGW64_NT-…), not the OS.
+        case "${{ runner.os }}" in
+          Linux) os=linux ;; macOS) os=darwin ;; Windows) os=windows ;;
+          *) echo "unsupported runner OS: ${{ runner.os }}" >&2; exit 1 ;;
+        esac
+        case "${{ runner.arch }}" in
+          X64) arch=amd64 ;; ARM64) arch=arm64 ;;
+          *) echo "unsupported runner arch: ${{ runner.arch }}" >&2; exit 1 ;;
+        esac
         # GitHub serves `latest` at releases/latest/download/ and a tag at
         # releases/download/<tag>/ — the two paths are not symmetric.
         case "${{ inputs.cli-version }}" in
@@ -68,9 +76,14 @@ runs:
           *) rel="download/${{ inputs.cli-version }}" ;;
         esac
         url="https://github.com/branchkit/branchkit-cli/releases/${rel}/branchkit-cli-${os}-${arch}.tar.gz"
-        curl -fsSL "$url" -o /tmp/branchkit-cli.tar.gz
-        sudo tar -xzf /tmp/branchkit-cli.tar.gz -C /usr/local/bin/
-        sudo chmod +x /usr/local/bin/branchkit-cli
+        # Into the job's temp dir and onto PATH for later steps: no sudo, and
+        # the same on every OS. tar runs inside the directory because GNU tar
+        # reads a Windows path's drive colon as a remote host.
+        dest="$RUNNER_TEMP/branchkit-cli"
+        mkdir -p "$dest"
+        curl -fsSL "$url" -o "$dest/cli.tar.gz"
+        (cd "$dest" && tar -xzf cli.tar.gz && rm cli.tar.gz)
+        echo "$dest" >> "$GITHUB_PATH"
 
     - name: Package
       id: package
@@ -112,5 +125,16 @@ runs:
       run: |
         set -euo pipefail
         t="${{ steps.package.outputs.tarball }}"
-        gh release upload "${{ inputs.tag }}" \
+        tag="${{ inputs.tag }}"
+        # The tag push alone makes no release. Create it on first need; every
+        # platform job of the matrix gets here, so losing the race to create
+        # it is fine as long as it exists afterwards. A tag with a pre-release
+        # suffix (v1.2.0-rc.1) makes a prerelease, which `latest` skips.
+        if ! gh release view "$tag" >/dev/null 2>&1; then
+          pre=""
+          case "$tag" in *-*) pre="--prerelease" ;; esac
+          gh release create "$tag" --verify-tag --title "$tag" --notes "" $pre \
+            || gh release view "$tag" >/dev/null
+        fi
+        gh release upload "$tag" \
           "$t" "$t.sha256" "$t.sigstore.json" --clobber
