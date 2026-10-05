@@ -27,7 +27,13 @@ plugins:
 
   - id: system
     source: github:branchkit/branchkit-plugin-system
-    description: "The application registry, app launching, and connected input devices."
+    description: "Connected input devices: keyboards, mice and controllers, read only."
+    categories: [system]
+    tier: first-party
+
+  - id: apps
+    source: github:branchkit/branchkit-plugin-apps
+    description: "The apps on this machine and the names you call them by: open, switch to, or start a new window of any app by name."
     categories: [system]
     tier: first-party
     collections: [app_traits, apps]
