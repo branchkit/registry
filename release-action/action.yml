@@ -53,7 +53,13 @@ runs:
         if command -v branchkit-cli >/dev/null 2>&1; then exit 0; fi
         os=$(uname -s | tr '[:upper:]' '[:lower:]')
         arch=$(uname -m); [ "$arch" = "x86_64" ] && arch=amd64; [ "$arch" = "aarch64" ] && arch=arm64
-        url="https://github.com/branchkit/branchkit-cli/releases/${{ inputs.cli-version }}/download/branchkit-cli-${os}-${arch}.tar.gz"
+        # GitHub serves `latest` at releases/latest/download/ and a tag at
+        # releases/download/<tag>/ — the two paths are not symmetric.
+        case "${{ inputs.cli-version }}" in
+          latest) rel="latest/download" ;;
+          *) rel="download/${{ inputs.cli-version }}" ;;
+        esac
+        url="https://github.com/branchkit/branchkit-cli/releases/${rel}/branchkit-cli-${os}-${arch}.tar.gz"
         curl -fsSL "$url" -o /tmp/branchkit-cli.tar.gz
         sudo tar -xzf /tmp/branchkit-cli.tar.gz -C /usr/local/bin/
         sudo chmod +x /usr/local/bin/branchkit-cli
