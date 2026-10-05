@@ -27,10 +27,17 @@ plugins:
 
   - id: system
     source: github:branchkit/branchkit-plugin-system
-    description: "Application registry, app switching HUD, audio control, and system settings."
+    description: "The application registry, app launching, and connected input devices."
     categories: [system]
     tier: first-party
-    collections: [app_traits, apps, audio_inputs, audio_outputs]
+    collections: [app_traits, apps]
+
+  - id: audio
+    source: github:branchkit/branchkit-plugin-audio
+    description: "Volume, mute, and which audio devices you hear and speak through, by name."
+    categories: [system]
+    tier: first-party
+    collections: [audio_inputs, audio_outputs]
 
   - id: placement
     source: github:branchkit/branchkit-plugin-placement
