@@ -25,12 +25,6 @@ plugins:
     tier: first-party
     collections: [keybinds, keys, layout_characters, modifiers]
 
-  - id: system
-    source: github:branchkit/branchkit-plugin-system
-    description: "Connected input devices: keyboards, mice and controllers, read only."
-    categories: [system]
-    tier: first-party
-
   - id: apps
     source: github:branchkit/branchkit-plugin-apps
     description: "The apps on this machine and the names you call them by: open, switch to, or start a new window of any app by name."
