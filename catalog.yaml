@@ -39,6 +39,13 @@ plugins:
     tier: first-party
     collections: [audio_inputs, audio_outputs]
 
+  - id: address
+    source: github:branchkit/branchkit-plugin-address
+    description: "Say a file's name, get its address typed where you are writing: \"cite mission\" types @docs/MISSION.md into Claude Code."
+    categories: [productivity, accessibility]
+    tier: first-party
+    collections: [address_files]
+
   - id: placement
     source: github:branchkit/branchkit-plugin-placement
     description: "Put any window where you want it — a position, a screen, a desktop — without a pointer. Snap, move to a desktop, switch desktops."
