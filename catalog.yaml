@@ -1,71 +1,73 @@
 plugins:
-  - id: voice
-    source: github:branchkit/branchkit-plugin-voice
-    description: "Core voice commands, phonetic alphabet, calibration, dictation timing."
-    categories: [input, accessibility]
-    tier: first-party
-    collections: [alphabet, direction, number, voice_commands]
+- id: voice
+  source: github:branchkit/branchkit-plugin-voice
+  description: "Core voice commands, phonetic alphabet, calibration, dictation timing."
+  categories: [input, accessibility]
+  tier: first-party
+  collections: [alphabet, direction, number, voice_commands]
 
-  - id: tiling
-    source: github:branchkit/branchkit-plugin-tiling
-    description: "Tree-based tiling window manager with voice and keybind control."
-    categories: [windows, productivity]
-    tier: first-party
+- id: tiling
+  source: github:branchkit/branchkit-plugin-tiling
+  description: "Tree-based tiling window manager with voice and keybind control."
+  categories: [windows, productivity]
+  tier: first-party
 
-  - id: browser
-    source: github:branchkit/branchkit-plugin-browser
-    description: "Bridge between BranchKit and browser extensions. Routes voice commands to page elements."
-    categories: [browser, navigation]
-    tier: first-party
+- id: browser
+  source: github:branchkit/branchkit-plugin-browser
+  description: "Bridge between BranchKit and browser extensions. Routes voice commands to page elements."
+  categories: [browser, navigation]
+  tier: first-party
 
-  - id: keyboard
-    source: github:branchkit/branchkit-plugin-keyboard
-    description: "Global hotkey capture, keybind registry, and input simulation."
-    categories: [input]
-    tier: first-party
-    collections: [keybinds, keys, layout_characters, modifiers]
+- id: keyboard
+  source: github:branchkit/branchkit-plugin-keyboard
+  description: "Global hotkey capture, keybind registry, and input simulation."
+  categories: [input]
+  tier: first-party
+  collections: [keybinds, keys, layout_characters, modifiers]
 
-  - id: apps
-    source: github:branchkit/branchkit-plugin-apps
-    description: "The apps on this machine and the names you call them by: open, switch to, or start a new window of any app by name."
-    categories: [system]
-    tier: first-party
-    collections: [app_traits, apps]
+- id: apps
+  source: github:branchkit/branchkit-plugin-apps
+  description: "The apps on this machine and the names you call them by: open, switch to, or start a new window of any app by name."
+  categories: [system]
+  tier: first-party
+  collections: [app_traits, apps]
 
-  - id: audio
-    source: github:branchkit/branchkit-plugin-audio
-    description: "Volume, mute, and which audio devices you hear and speak through, by name."
-    categories: [system]
-    tier: first-party
-    collections: [audio_inputs, audio_outputs]
+- id: audio
+  source: github:branchkit/branchkit-plugin-audio
+  description: "Volume, mute, and which audio devices you hear and speak through, by name."
+  categories: [system]
+  tier: first-party
+  collections: [audio_inputs, audio_outputs]
 
-  - id: address
-    source: github:branchkit/branchkit-plugin-address
-    description: "Say a file's name, get its address typed where you are writing: \"mention mission\" types @docs/MISSION.md into Claude Code."
-    categories: [productivity, accessibility]
-    tier: first-party
-    collections: [address_files]
+- id: address
+  source: github:branchkit/branchkit-plugin-address
+  description: "Say a file's name, get its address typed where you are writing: \"mention mission\" types @docs/MISSION.md into Claude Code."
+  categories: [productivity, accessibility]
+  tier: first-party
+  collections: [address_files]
 
-  - id: placement
-    source: github:branchkit/branchkit-plugin-placement
-    description: "Put any window where you want it — a position, a screen, a desktop — without a pointer. Snap, move to a desktop, switch desktops."
-    categories: [windows]
-    tier: first-party
+- id: placement
+  source: github:branchkit/branchkit-plugin-placement
+  description: "Put any window where you want it — a position, a screen, a desktop — without a pointer. Snap, move to a desktop, switch desktops."
+  categories: [windows]
+  tier: first-party
 
-  - id: scripts
-    source: github:branchkit/branchkit-plugin-scripts
-    description: "User scripts host — single-file voice commands, event handlers, and timers in Lua, JavaScript, TypeScript, or Python."
-    categories: [scripting, productivity]
-    tier: first-party
+- id: scripts
+  source: github:branchkit/branchkit-plugin-scripts
+  description: "User scripts host — single-file voice commands, event handlers, and timers in Lua, JavaScript, TypeScript, or Python."
+  categories: [scripting, productivity]
+  tier: first-party
 
-  - id: announcements
-    source: github:branchkit/branchkit-plugin-announcements
-    description: "Announcements — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
-    categories: [accessibility]
-    tier: first-party
+- id: announcements
+  source: github:branchkit/branchkit-plugin-announcements
+  description: "Announcements — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
+  categories: [accessibility]
+  tier: first-party
 
-  - id: basetypes
-    source: github:DrewBradfordXYZ/branchkit-plugin-basetypes
-    description: "Basetypes integration with BranchKit."
-    categories: [productivity, quickbase]
-    tier: approved
+- id: basetypes
+  source: github:DrewBradfordXYZ/branchkit-plugin-basetypes
+  description: "Basetypes integration with BranchKit."
+  categories: [productivity, quickbase]
+  tier: approved
+  manifest_sha256: 16b2bdf04c6cc5092a399d19bc1cfb5d759aaa07bd8cd4f22386345105c1d8fd
+  registry_signature: yIg761hts9kjdsxOqbT4T5FOtjM0WCSIgdHphQu0GeeZufk+txY8IUbBt6/+yv8FJqMHn3ZFQ1Ut/6Iril8YAA==
