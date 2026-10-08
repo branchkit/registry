@@ -41,7 +41,7 @@ plugins:
 
   - id: address
     source: github:branchkit/branchkit-plugin-address
-    description: "Say a file's name, get its address typed where you are writing: \"cite mission\" types @docs/MISSION.md into Claude Code."
+    description: "Say a file's name, get its address typed where you are writing: \"mention mission\" types @docs/MISSION.md into Claude Code."
     categories: [productivity, accessibility]
     tier: first-party
     collections: [address_files]
