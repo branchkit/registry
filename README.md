@@ -109,8 +109,9 @@ binary. None is published yet, so they cannot complete until one is.
 
 ## Counter-signature
 
-When `catalog.yaml` changes on `main`, a workflow signs the manifest of each
-entry that has a release and writes `manifest_sha256` and `registry_signature`
+A maintainer runs the counter-sign workflow by hand on `main` (it no longer
+runs on every catalog change). It signs the manifest of each entry that has a
+release and writes `manifest_sha256` and `registry_signature`
 into the entry. Installing by catalog name checks that signature, so a copy of
 a plugin republished under another name cannot claim the listing. A present but
 invalid signature is refused. The signing key exists only in this repository's

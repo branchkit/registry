@@ -6,11 +6,14 @@ name: Counter-sign Catalog
 # counter-signature over the plugin's manifest and records it in the entry,
 # then commits the signatures back. The counter-signature is what an install
 # verifies to confirm a canonical registry listing (the anti-clone moat).
+#
+# Run by hand only, for now. On every catalog push it signed each entry with
+# a release, community entries included, with no review step, and the
+# signature binds one plugin.json: a later release that changes its manifest
+# fails install until the catalog is signed again. Signing moves to each
+# release once the registry's review design lands.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'catalog.yaml'
+  workflow_dispatch:
 
 # Guard against an infinite loop: this workflow commits catalog.yaml, which
 # would re-trigger it. The commit message carries [skip ci] (GitHub skips the
@@ -21,6 +24,8 @@ concurrency:
 
 jobs:
   countersign:
+    # A dispatch can name any branch; the key signs only what main holds.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
