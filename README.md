@@ -69,13 +69,16 @@ CI checks the submission:
 - `source` matches `github:owner/branchkit-plugin-*`, and the ID matches the
   repository name;
 - the repository exists and has a `plugin.json` at its root whose `id` matches;
-- a pull request from a fork adds or changes `community` entries only;
-  maintainers set the other tiers;
+- a pull request from a fork changes only `catalog.yaml`, and only ADDS new
+  `community` entries: changing or removing an existing entry, or setting
+  another tier, is a maintainer's change (open an issue to ask for one);
 - `first-party` entries point under `github:branchkit/`;
 - no ID is within a small edit distance of another (a typosquatting check).
 
-A fork pull request that passes with no typosquatting warning is merged
-automatically as `community`. A warning holds it for manual review.
+The checks run from this repository's `main` branch, never from the pull
+request, so a pull request cannot change the rules it is judged by. A
+maintainer merges a pull request that passes; a typosquatting warning asks
+for a closer look.
 
 ## Trust tiers
 

@@ -1,9 +1,19 @@
 name: Validate Catalog
 
+# Runs from the BASE branch (pull_request_target), so a pull request cannot
+# change the checks it is judged by: editing this file or the script in the
+# same pull request has no effect on the run. The pull request's files are
+# read as data only: nothing from it is checked out over the workspace or
+# executed. A maintainer merges; nothing here merges on its own.
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'catalog.yaml'
+      - 'blocklist.json'
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   validate:
@@ -11,206 +21,40 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install dependencies
         run: |
           sudo apt-get install -y python3-yaml
 
+      - name: Read the pull request's catalog and file list as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Judge the catalog that would land: GitHub's test merge of the
+          # pull request into main, compared with main. The head alone, or a
+          # merge base the pull request chooses, would miss an entry main
+          # gained since (a second entry under that id would pass).
+          if ! git fetch --no-tags origin "refs/pull/${PR}/merge"; then
+            echo "error: the pull request does not merge cleanly into main; update it"
+            exit 1
+          fi
+          git show FETCH_HEAD:catalog.yaml > "$RUNNER_TEMP/pr-catalog.yaml"
+          git show HEAD:catalog.yaml > "$RUNNER_TEMP/base-catalog.yaml"
+          gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+            | jq -s 'add' > "$RUNNER_TEMP/pr-files.json"
+
       - name: Validate catalog.yaml
         env:
           GH_TOKEN: ${{ github.token }}
-          FROM_FORK: ${{ github.event.pull_request.head.repo.fork }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # A deleted fork has no head repo; only a branch of this
+          # repository is not a fork.
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
         run: |
-          set -e
-
-          python3 - <<'PYTHON'
-          import yaml
-          import sys
-          import json
-          import subprocess
-          import re
-
-          def levenshtein(s1, s2):
-              if len(s1) < len(s2):
-                  return levenshtein(s2, s1)
-              if len(s2) == 0:
-                  return len(s1)
-              prev = range(len(s2) + 1)
-              for i, c1 in enumerate(s1):
-                  curr = [i + 1]
-                  for j, c2 in enumerate(s2):
-                      curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (c1 != c2)))
-                  prev = curr
-              return prev[-1]
-
-          with open("catalog.yaml") as f:
-              cat = yaml.safe_load(f)
-
-          # The catalog as it was before this PR, to tell which entries the
-          # PR adds or changes. A fork PR is merged without review, so it may
-          # only add or change community entries: a tier is a trust decision
-          # (first-party plugins get their declared access granted at install).
-          import os
-          from_fork = os.environ.get("FROM_FORK") == "true"
-          base = {}
-          base_sha = os.environ.get("BASE_SHA", "")
-          if base_sha:
-              old = subprocess.run(["git", "show", f"{base_sha}:catalog.yaml"],
-                                   capture_output=True, text=True)
-              if old.returncode == 0:
-                  for e in (yaml.safe_load(old.stdout) or {}).get("plugins", []) or []:
-                      base[e.get("id", "")] = e
-
-          if not cat or "plugins" not in cat:
-              print("error: catalog.yaml must have a 'plugins' key")
-              sys.exit(1)
-
-          errors = 0
-          warnings = 0
-          ids_seen = set()
-          sources_seen = set()
-          valid_tiers = {"first-party", "approved", "community"}
-          id_pattern = re.compile(r"^[a-z0-9-]+$")
-          source_pattern = re.compile(r"^github:[a-zA-Z0-9_.-]+/branchkit-plugin-[a-zA-Z0-9_.-]+$")
-
-          for entry in cat["plugins"]:
-              plugin_id = entry.get("id", "")
-
-              # Check ID format
-              if not id_pattern.match(plugin_id):
-                  print(f"error: invalid plugin ID '{plugin_id}' (must be lowercase letters, digits, hyphens)")
-                  errors += 1
-                  continue
-
-              # Check duplicate IDs
-              if plugin_id in ids_seen:
-                  print(f"error: duplicate plugin ID '{plugin_id}'")
-                  errors += 1
-                  continue
-              ids_seen.add(plugin_id)
-
-              # Check required fields
-              source = entry.get("source", "")
-              desc = entry.get("description", "")
-              tier = entry.get("tier", "")
-
-              if not source:
-                  print(f"error: plugin '{plugin_id}': missing 'source' field")
-                  errors += 1
-              if not desc:
-                  print(f"error: plugin '{plugin_id}': missing 'description' field")
-                  errors += 1
-              if tier not in valid_tiers:
-                  print(f"error: plugin '{plugin_id}': invalid tier '{tier}' (must be one of: {', '.join(sorted(valid_tiers))})")
-                  errors += 1
-
-              # first-party means BranchKit's own: the source must be in the
-              # branchkit organization, whoever opens the PR.
-              owner = source.removeprefix("github:").split("/")[0].lower() if source else ""
-              if tier == "first-party" and owner != "branchkit":
-                  print(f"error: plugin '{plugin_id}': tier 'first-party' needs a source under github:branchkit/, not '{source}'")
-                  errors += 1
-
-              # A fork PR may add or change community entries only.
-              if from_fork and base.get(plugin_id) != entry and tier != "community":
-                  print(f"error: plugin '{plugin_id}': a pull request from a fork may only add or change 'community' entries (this one is '{tier}'); a maintainer sets other tiers")
-                  errors += 1
-
-              # Check source format: github:owner/branchkit-plugin-*
-              if source and not source_pattern.match(source):
-                  print(f"error: plugin '{plugin_id}': source '{source}' must match github:owner/branchkit-plugin-* format")
-                  errors += 1
-                  continue
-
-              # Check duplicate sources
-              if source in sources_seen:
-                  print(f"error: plugin '{plugin_id}': duplicate source '{source}'")
-                  errors += 1
-              sources_seen.add(source)
-
-              # Verify plugin ID matches repo name convention
-              if source:
-                  repo_name = source.split("/")[-1]
-                  expected_id = repo_name.removeprefix("branchkit-plugin-")
-                  if plugin_id != expected_id:
-                      print(f"error: plugin '{plugin_id}': ID must match repo name (repo 'branchkit-plugin-{expected_id}' expects id '{expected_id}')")
-                      errors += 1
-
-              # Check GitHub repo exists
-              if source:
-                  owner_repo = source.removeprefix("github:")
-                  result = subprocess.run(
-                      ["gh", "api", f"repos/{owner_repo}", "--silent"],
-                      capture_output=True
-                  )
-                  if result.returncode != 0:
-                      print(f"error: plugin '{plugin_id}': repo '{owner_repo}' not found on GitHub")
-                      errors += 1
-                  else:
-                      print(f"pass: plugin '{plugin_id}': {owner_repo} exists")
-
-              # Fetch and validate plugin.json from repo
-              if source and errors == 0:
-                  owner_repo = source.removeprefix("github:")
-                  result = subprocess.run(
-                      ["gh", "api", f"repos/{owner_repo}/contents/plugin.json",
-                       "--header", "Accept: application/vnd.github.raw+json"],
-                      capture_output=True, text=True
-                  )
-                  if result.returncode != 0:
-                      print(f"error: plugin '{plugin_id}': could not fetch plugin.json from {owner_repo}")
-                      errors += 1
-                  else:
-                      try:
-                          manifest = json.loads(result.stdout)
-                          manifest_id = manifest.get("id", "")
-                          if manifest_id != plugin_id:
-                              print(f"error: plugin '{plugin_id}': plugin.json has id '{manifest_id}', expected '{plugin_id}'")
-                              errors += 1
-                          else:
-                              print(f"pass: plugin '{plugin_id}': plugin.json ID matches")
-                      except json.JSONDecodeError:
-                          print(f"error: plugin '{plugin_id}': plugin.json is not valid JSON")
-                          errors += 1
-
-          # Typosquatting check: Levenshtein distance between all pairs of IDs
-          # Threshold scales with name length to reduce false positives on short names
-          all_ids = list(ids_seen)
-          for i, id1 in enumerate(all_ids):
-              for id2 in all_ids[i+1:]:
-                  dist = levenshtein(id1, id2)
-                  min_len = min(len(id1), len(id2))
-                  threshold = 1 if min_len <= 5 else 2
-                  if dist <= threshold and min_len > 3:
-                      print(f"warning: typosquat risk: '{id1}' and '{id2}' (distance={dist}) — requires manual review")
-                      warnings += 1
-
-          print(f"\nValidated {len(cat['plugins'])} plugins: {errors} errors, {warnings} warnings")
-
-          if errors > 0:
-              sys.exit(1)
-          if warnings > 0:
-              print("Typosquat warnings present — PR requires manual review")
-              sys.exit(2)
-          PYTHON
-
-  auto-merge:
-    needs: validate
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.fork == true
-    permissions:
-      contents: write
-      pull-requests: write
-
-    steps:
-      - name: Auto-merge community submissions
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh pr merge ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
-            --squash \
-            --auto
+          if [ "$HEAD_REPO" = "$REPO" ]; then FROM_FORK=false; else FROM_FORK=true; fi
+          FROM_FORK=$FROM_FORK python3 .github/scripts/validate_catalog.py \
+            "$RUNNER_TEMP/pr-catalog.yaml" "$RUNNER_TEMP/base-catalog.yaml" \
+            "$RUNNER_TEMP/pr-files.json"
