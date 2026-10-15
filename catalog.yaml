@@ -63,11 +63,3 @@ plugins:
   description: "Announcements — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
   categories: [accessibility]
   tier: first-party
-
-- id: basetypes
-  source: github:DrewBradfordXYZ/branchkit-plugin-basetypes
-  description: "Basetypes integration with BranchKit."
-  categories: [productivity, quickbase]
-  tier: approved
-  manifest_sha256: 16b2bdf04c6cc5092a399d19bc1cfb5d759aaa07bd8cd4f22386345105c1d8fd
-  registry_signature: yIg761hts9kjdsxOqbT4T5FOtjM0WCSIgdHphQu0GeeZufk+txY8IUbBt6/+yv8FJqMHn3ZFQ1Ut/6Iril8YAA==
