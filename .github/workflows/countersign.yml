@@ -64,7 +64,7 @@ jobs:
             exit 0
           fi
           git config user.name "branchkit-registry-bot"
-          git config user.email "bot@branchkit.dev"
+          git config user.email "bot@branchkit.com"
           git add catalog.yaml
           # [skip ci] stops this push from re-triggering the workflow.
           git commit -m "registry: counter-sign catalog entries [skip ci]"
