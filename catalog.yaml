@@ -69,3 +69,9 @@ plugins:
   description: "Announcements — what BranchKit tells you: problems, modes and their choices, and, for a person who cannot see the screen, what happened. Spoken today."
   categories: [accessibility]
   tier: first-party
+
+- id: snippets
+  source: github:branchkit/branchkit-plugin-snippets
+  description: "Speak a snippet's name to type its expansion at the cursor. Add your own in Settings."
+  categories: [input, productivity]
+  tier: first-party
